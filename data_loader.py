@@ -1,50 +1,45 @@
-import csv
-import os
-from data_models import Wheelchair, AACDevice, Mount
+import sqlite3
 
-def load_wheelchairs(filename):
+class Wheelchair:
+    def __init__(self, model, frame_clamps, mount_location):
+        self.model = model
+        self.frame_clamps = frame_clamps.split(',')
+        self.mount_location = mount_location
+
+class AACDevice:
+    def __init__(self, name, weight):
+        self.name = name
+        self.weight = weight
+
+class Mount:
+    def __init__(self, name, weight_capacity):
+        self.name = name
+        self.weight_capacity = weight_capacity
+
+def load_data():
+    conn = sqlite3.connect('mounting_solutions.db')
+    cursor = conn.cursor()
+
     wheelchairs = []
-    with open(filename, 'r', encoding='utf-8-sig') as file:
-        reader = csv.DictReader(file)
-        headers = reader.fieldnames
-        print("CSV Headers:", headers)  # Debugging line to print headers
-        for row in reader:
-            frame_clamps = row['frame_clamps'].split(',')
-            wheelchairs.append(Wheelchair(row['model'], frame_clamps, row['location']))
-    return wheelchairs
+    cursor.execute("SELECT model, frame_clamps, location FROM wheelchairs")
+    for row in cursor.fetchall():
+        wheelchairs.append(Wheelchair(*row))
 
-def load_aac_devices(filename):
     aac_devices = []
-    with open(filename, 'r', encoding='utf-8-sig') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            aac_devices.append(AACDevice(row['name'], float(row['weight'])))
-    return aac_devices
+    cursor.execute("SELECT name, weight FROM aac_devices")
+    for row in cursor.fetchall():
+        aac_devices.append(AACDevice(*row))
 
-def load_mounts(filename):
     mounts = []
-    with open(filename, 'r', encoding='utf-8-sig') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            mounts.append(Mount(row['name'], float(row['weight_capacity'])))
-    return mounts
+    cursor.execute("SELECT name, weight_capacity FROM mounts")
+    for row in cursor.fetchall():
+        mounts.append(Mount(*row))
 
-def load_product_urls(filename):
     product_urls = {}
-    with open(filename, 'r', encoding='utf-8-sig') as file:
-        reader = csv.DictReader(file)
-        for row in reader:
-            product_urls[row['product_name']] = row['url']
-    return product_urls
+    cursor.execute("SELECT product_name, url FROM product_urls")
+    for row in cursor.fetchall():
+        product_urls[row[0]] = row[1]
 
-def load_data(app):
-    current_dir = os.path.dirname(__file__)
-    wheelchairs_csv = os.path.join(current_dir, 'wheelchairs.csv')
-    aac_devices_csv = os.path.join(current_dir, 'aac_devices.csv')
-    mounts_csv = os.path.join(current_dir, 'mounts.csv')
-    product_urls_csv = os.path.join(current_dir, 'product_urls.csv')
+    conn.close()
 
-    app.wheelchairs = load_wheelchairs(wheelchairs_csv)
-    app.aac_devices = load_aac_devices(aac_devices_csv)
-    app.mounts = load_mounts(mounts_csv)
-    app.product_urls = load_product_urls(product_urls_csv)
+    return wheelchairs, aac_devices, mounts, product_urls
