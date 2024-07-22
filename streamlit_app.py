@@ -17,23 +17,34 @@ def main():
     col1, col2 = st.columns(2)
 
     with col1:
-        selected_wheelchair = st.selectbox("Select Wheelchair Model:", [wc.model for wc in wheelchairs])
-        selected_device = st.selectbox("Select AAC Device:", [device.name for device in aac_devices])
-        using_eyegaze = st.checkbox("Using Eyegaze?")
+        wheelchair_options = ["Please select your wheelchair"] + [wc.model for wc in wheelchairs]
+        selected_wheelchair_index = st.selectbox("Select Wheelchair Model:", range(len(wheelchair_options)), format_func=lambda x: wheelchair_options[x])
+        selected_wheelchair = wheelchair_options[selected_wheelchair_index] if selected_wheelchair_index > 0 else None
 
-    if 'solutions' not in st.session_state:
-        st.session_state.solutions = None
+        device_options = ["Please select your device"] + [device.name for device in aac_devices]
+        selected_device_index = st.selectbox("Select AAC Device:", range(len(device_options)), format_func=lambda x: device_options[x])
+        selected_device = device_options[selected_device_index] if selected_device_index > 0 else None
+        
+        # Find the selected device
+        selected_device_obj = next((device for device in aac_devices if device.name == selected_device), None)
+        
+        # Only enable the eyegaze checkbox if the device supports it
+        if selected_device_obj and selected_device_obj.eyegaze:
+            using_eyegaze = st.checkbox("Using Eyegaze?")
+        else:
+            st.checkbox("Using Eyegaze?", value=False, disabled=True)
+            using_eyegaze = False
 
-    if st.button("Find Solutions"):
-        st.session_state.solutions = find_solutions(
+    # Update solutions whenever a selection changes
+    if selected_wheelchair and selected_device:
+        solutions = find_solutions(
             st.session_state.data,
             selected_wheelchair,
             selected_device,
             using_eyegaze
         )
 
-    if st.session_state.solutions:
-        recommended_solution, alternative_solutions = st.session_state.solutions
+        recommended_solution, alternative_solutions = solutions
 
         # Cap alternative solutions at 5, ensuring solutions from both RE and DA if available
         capped_alternatives = cap_and_balance_solutions(alternative_solutions, 5)
@@ -48,6 +59,9 @@ def main():
             for i, solution in enumerate(capped_alternatives):
                 if st.button(f"View Alternative Solution {i+1}"):
                     display_solution_details(solution, product_urls)
+    else:
+        with col2:
+            st.info("Please select both a wheelchair and an AAC device to view solutions.")
 
 def cap_and_balance_solutions(solutions, cap):
     re_solutions = [s for s in solutions if "(RE)" in s]

@@ -7,9 +7,10 @@ class Wheelchair:
         self.mount_location = mount_location
 
 class AACDevice:
-    def __init__(self, name, weight):
+    def __init__(self, name, weight, eyegaze):
         self.name = name
         self.weight = weight
+        self.eyegaze = bool(eyegaze)  # Convert to boolean
 
 class Mount:
     def __init__(self, name, weight_capacity):
@@ -26,7 +27,7 @@ def load_data():
         wheelchairs.append(Wheelchair(*row))
 
     aac_devices = []
-    cursor.execute("SELECT name, weight FROM aac_devices")
+    cursor.execute("SELECT name, weight, eyegaze FROM aac_devices")
     for row in cursor.fetchall():
         aac_devices.append(AACDevice(*row))
 
