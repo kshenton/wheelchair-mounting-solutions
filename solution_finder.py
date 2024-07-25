@@ -16,12 +16,17 @@ def find_solutions(data, selected_wheelchair, selected_device, using_eyegaze):
 
             for clamp in available_frame_clamps:
                 for mount in compatible_mounts:
+                    # Check for incompatible combinations
+                    if (clamp.manufacturer == "Rehadapt" and mount.manufacturer == "Daessy") or \
+                       (clamp.manufacturer == "Daessy" and mount.manufacturer == "Rehadapt"):
+                        continue  # Skip this combination as it's not allowed
+
                     adaptor = None
                     if (clamp.manufacturer == "Daessy" and mount.manufacturer == "Rehadapt") or \
                        (clamp.manufacturer == "Etac" and mount.manufacturer == "Rehadapt"):
-                        adaptor = next((p for p in products.values() if p.type == 'adaptor' and p.name == "M3D Adapter Ring"), None)
+                        adaptor = next((p for p in products.values() if p.type == 'adaptor' and p.name == "Rehadapt M3D Adapter Ring"), None)
                     elif clamp.manufacturer == "Etac" and mount.manufacturer == "Daessy":
-                        adaptor = next((p for p in products.values() if p.type == 'adaptor' and p.name == "IPA (Inner Piece Adaptor)"), None)
+                        adaptor = next((p for p in products.values() if p.type == 'adaptor' and p.name == "Daessy IPA (Inner Piece Adaptor)"), None)
                     
                     if using_eyegaze and mount.manufacturer == "Rehadapt" and mount.name != "M3D Plus HD":
                         continue  # Skip non-M3D Plus HD Rehadapt mounts for eyegaze devices
