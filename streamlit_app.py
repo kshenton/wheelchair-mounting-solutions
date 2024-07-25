@@ -1,6 +1,6 @@
 import streamlit as st
 from data_loader import load_data
-from solution_finder import find_solutions
+from solution_finder import find_solutions, cap_and_balance_solutions
 from PIL import Image
 import io
 
@@ -15,6 +15,25 @@ def main():
 
     wheelchairs, aac_devices, products = st.session_state.data
 
+    if 'mount_type' not in st.session_state:
+        st.session_state.mount_type = None
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Wheelchair", use_container_width=True):
+            st.session_state.mount_type = "wheelchair"
+            st.experimental_rerun()
+    with col2:
+        if st.button("Floorstand", use_container_width=True):
+            st.session_state.mount_type = "floorstand"
+            st.experimental_rerun()
+
+    if st.session_state.mount_type == "wheelchair":
+        display_wheelchair_options(wheelchairs, aac_devices, products)
+    elif st.session_state.mount_type == "floorstand":
+        display_floorstand_options(aac_devices, products)
+
+def display_wheelchair_options(wheelchairs, aac_devices, products):
     col1, col2 = st.columns([1, 1])
 
     with col1:
@@ -31,8 +50,7 @@ def main():
         if selected_device_obj and selected_device_obj.eyegaze:
             using_eyegaze = st.checkbox("Using Eyegaze?")
         else:
-            st.checkbox("Using Eyegaze?", value=False, disabled=True)
-            using_eyegaze = False
+            using_eyegaze = st.checkbox("Using Eyegaze?", value=False, disabled=True)
 
         # Display wheelchair and AAC device images
         image_col1, image_col2 = st.columns(2)
@@ -54,14 +72,12 @@ def main():
 
     with col2:
         if selected_wheelchair and selected_device:
-            solutions = find_solutions(
+            recommended_solution, alternative_solutions = find_solutions(
                 st.session_state.data,
                 selected_wheelchair,
                 selected_device,
                 using_eyegaze
             )
-
-            recommended_solution, alternative_solutions = solutions
 
             if recommended_solution:
                 st.subheader("Recommended Solution:")
@@ -78,47 +94,65 @@ def main():
         else:
             st.info("Please select both a wheelchair and an AAC device to view solutions.")
 
-def cap_and_balance_solutions(solutions, cap):
-    re_solutions = [s for s in solutions if "Rehadapt" in s]
-    da_solutions = [s for s in solutions if "Daessy" in s]
-    
-    if len(re_solutions) + len(da_solutions) <= cap:
-        return solutions
-    
-    balanced_solutions = []
-    while len(balanced_solutions) < cap and (re_solutions or da_solutions):
-        if re_solutions:
-            balanced_solutions.append(re_solutions.pop(0))
-        if len(balanced_solutions) < cap and da_solutions:
-            balanced_solutions.append(da_solutions.pop(0))
-    
-    return balanced_solutions
+def display_floorstand_options(aac_devices, products):
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        device_options = ["Please select your device"] + [f"{device.make} {device.model}" for device in aac_devices]
+        selected_device_index = st.selectbox("Select AAC Device:", range(len(device_options)), format_func=lambda x: device_options[x])
+        selected_device = device_options[selected_device_index] if selected_device_index > 0 else None
+
+        if selected_device:
+            selected_device_obj = next((device for device in aac_devices if f"{device.make} {device.model}" == selected_device), None)
+            if selected_device_obj and selected_device_obj.device_image:
+                image = Image.open(io.BytesIO(selected_device_obj.device_image))
+                image.thumbnail((250, 250))
+                st.image(image, caption=selected_device, use_column_width=False)
+
+    with col2:
+        if selected_device:
+            selected_device_obj = next((device for device in aac_devices if f"{device.make} {device.model}" == selected_device), None)
+            if selected_device_obj:
+                compatible_floorstands = [p for p in products.values() if p.type == 'floorstand' and selected_device_obj.weight <= p.weight_capacity]
+                
+                if compatible_floorstands:
+                    st.subheader("Compatible Floorstands:")
+                    for floorstand in compatible_floorstands:
+                        if st.button(f"View {floorstand.name}"):
+                            display_floorstand_details(floorstand)
+                else:
+                    st.info("No compatible floorstands found for this device.")
+            else:
+                st.info("Please select an AAC device to view compatible floorstands.")
 
 def display_solution_details(solution, products):
-    parts = solution.split('|')
-    location = parts[2].split(':')[1].strip()
+    solution_string, frame_clamp, mount, adaptor = solution
+    parts = solution_string.split('|')
+    location = parts[-1].split(':')[1].strip()
+
+    st.markdown(f"**Frame Clamp: [{frame_clamp.name}]({frame_clamp.url})**")
+    st.write(f"Manufacturer: {frame_clamp.manufacturer}")
+    st.write(f"Description: {frame_clamp.description}")
     st.write(f"Location: {location}")
-    
-    frame_clamp_name = parts[0].split(':')[1].strip()
-    mount_name = parts[1].split(':')[1].strip()
 
-    frame_clamp = next((p for p in products.values() if p.type == 'frame_clamp' and p.name == frame_clamp_name), None)
-    mount = next((p for p in products.values() if p.type == 'mount' and p.name == mount_name), None)
+    st.write("")  # Add a blank line for spacing
 
-    if frame_clamp:
-        st.markdown(f"Frame Clamp: [{frame_clamp.name}]({frame_clamp.url})")
-        st.write(f"Description: {frame_clamp.description}")
-    
-    if mount:
-        st.markdown(f"Mount: [{mount.name}]({mount.url})")
-        st.write(f"Description: {mount.description}")
+    st.markdown(f"**Mount: [{mount.name}]({mount.url})**")
+    st.write(f"Manufacturer: {mount.manufacturer}")
+    st.write(f"Description: {mount.description}")
 
-    # Check if we need to display the M3D Adapter Ring
-    if frame_clamp and mount and frame_clamp.manufacturer == "Daessy" and mount.manufacturer == "Rehadapt":
-        adapter_ring = next((p for p in products.values() if p.name == "Rehadapt M3D Adapter Ring"), None)
-        if adapter_ring:
-            st.markdown(f"Adapter Ring: [{adapter_ring.name}]({adapter_ring.url})")
-            st.write(f"Description: {adapter_ring.description}")
+    if adaptor:
+        st.write("")  # Add a blank line for spacing
+        st.write("You will need the following adaptor to interface the above two parts:")
+        st.markdown(f"**Adaptor: [{adaptor.name}]({adaptor.url})**")
+        st.write(f"Manufacturer: {adaptor.manufacturer}")
+        st.write(f"Description: {adaptor.description}")
+
+def display_floorstand_details(floorstand):
+    st.markdown(f"**Floorstand: [{floorstand.name}]({floorstand.url})**")
+    st.write(f"Manufacturer: {floorstand.manufacturer}")
+    st.write(f"Description: {floorstand.description}")
+    st.write(f"Weight Capacity: {floorstand.weight_capacity} kg")
 
 if __name__ == "__main__":
     main()
