@@ -16,12 +16,9 @@ def find_solutions(data, selected_wheelchair, selected_device, using_eyegaze):
 
             for clamp in available_frame_clamps:
                 for mount in compatible_mounts:
-                    # Check for incompatible combinations
-                    if (clamp.manufacturer == "Rehadapt" and mount.manufacturer == "Daessy"):
-                        continue  # Skip this combination as it's not allowed
-
                     adaptor = None
-                    if (clamp.manufacturer in ["Daessy", "Etac"] and mount.manufacturer == "Rehadapt"):
+                    if (clamp.manufacturer == "Daessy" and mount.manufacturer == "Rehadapt") or \
+                       (clamp.manufacturer == "Etac" and mount.manufacturer == "Rehadapt"):
                         adaptor = next((p for p in products.values() if p.type == 'adaptor' and p.name == "M3D Adapter Ring"), None)
                     elif clamp.manufacturer == "Etac" and mount.manufacturer == "Daessy":
                         adaptor = next((p for p in products.values() if p.type == 'adaptor' and p.name == "IPA (Inner Piece Adaptor)"), None)
@@ -37,18 +34,6 @@ def find_solutions(data, selected_wheelchair, selected_device, using_eyegaze):
                     all_solutions.append((solution, clamp, mount, adaptor))
 
             recommended_solution = select_recommended_solution(all_solutions, using_eyegaze, selected_device_weight)
-            
-            # Ensure the M3D Adapter Ring is suggested when necessary
-            if recommended_solution:
-                clamp, mount, adaptor = recommended_solution[1:4]
-                if clamp.manufacturer in ["Daessy", "Etac"] and mount.manufacturer == "Rehadapt" and not adaptor:
-                    m3d_adapter = next((p for p in products.values() if p.type == 'adaptor' and p.name == "Rehadapt M3D Adapter Ring"), None)
-                    if m3d_adapter:
-                        new_solution = list(recommended_solution)
-                        new_solution[0] += f" | Adaptor: {m3d_adapter.name}"
-                        new_solution[3] = m3d_adapter
-                        recommended_solution = tuple(new_solution)
-
             alternative_solutions = [s for s in all_solutions if s != recommended_solution]
 
             return recommended_solution, alternative_solutions
@@ -56,23 +41,37 @@ def find_solutions(data, selected_wheelchair, selected_device, using_eyegaze):
     return None, []
 
 def select_recommended_solution(solutions, using_eyegaze, device_weight):
-    if using_eyegaze or device_weight > 2.5:
+    if using_eyegaze or device_weight >= 2.5:
         preferred_manufacturer = "Daessy"
     else:
         preferred_manufacturer = "Rehadapt"
 
-    # If eyegaze or device weight > 2.5, prioritize Daessy solutions
+    # If eyegaze or device weight >= 2.4, prioritize Daessy solutions
     if preferred_manufacturer == "Daessy":
+        solution = next((s for s in solutions if s[1].manufacturer == "Daessy" and s[2].manufacturer == "Daessy"), None)
+        if solution:
+            return solution
+        # If no full Daessy solution, try Daessy mount with any frame clamp
         solution = next((s for s in solutions if s[2].manufacturer == "Daessy"), None)
         if solution:
             return solution
+        # If still no solution and using eyegaze, try Rehadapt M3D Plus HD
+        if using_eyegaze:
+            solution = next((s for s in solutions if "M3D Plus HD" in s[0]), None)
+            if solution:
+                return solution
     
-    # For Rehadapt preference (device weight <= 2.4 and no eyegaze)
-    elif preferred_manufacturer == "Rehadapt":
+    # For Rehadapt preference (device weight < 2.4 and no eyegaze)
+    if preferred_manufacturer == "Rehadapt":
+        # Try to find a solution with Rehadapt for both frame clamp and mount
+        solution = next((s for s in solutions if s[1].manufacturer == "Rehadapt" and s[2].manufacturer == "Rehadapt"), None)
+        if solution:
+            return solution
+        # If not found, try to find a solution with at least a Rehadapt mount
         solution = next((s for s in solutions if s[2].manufacturer == "Rehadapt"), None)
         if solution:
             return solution
-    
+
     # If no preferred solution is found, return any available solution
     if solutions:
         return solutions[0]
