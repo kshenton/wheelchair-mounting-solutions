@@ -4,8 +4,9 @@ from solution_finder import find_solutions, cap_and_balance_solutions
 from PIL import Image
 import io
 
+st.set_page_config(page_title="Mounting Solutions Finder", layout="wide")
+
 def main():
-    st.set_page_config(page_title="Mounting Solutions Finder", layout="wide")
     st.title("Mounting Solutions Finder")
 
     st.warning("Please note: The following solutions are based solely on the provided information. Varying individual circumstances may mean the selected solution won't always be suitable.")
