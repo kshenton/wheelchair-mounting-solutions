@@ -21,17 +21,22 @@ def main():
     col1, col2 = st.columns(2)
     with col1:
         if st.button("Wheelchair", use_container_width=True):
-            st.session_state.mount_type = "wheelchair"
-            st.experimental_rerun()
+            if st.session_state.mount_type != "wheelchair":
+                st.session_state.mount_type = "wheelchair"
+                st.experimental_rerun()
     with col2:
         if st.button("Floorstand", use_container_width=True):
-            st.session_state.mount_type = "floorstand"
-            st.experimental_rerun()
+            if st.session_state.mount_type != "floorstand":
+                st.session_state.mount_type = "floorstand"
+                st.experimental_rerun()
 
     if st.session_state.mount_type == "wheelchair":
         display_wheelchair_options(wheelchairs, aac_devices, products)
     elif st.session_state.mount_type == "floorstand":
         display_floorstand_options(aac_devices, products)
+
+if __name__ == "__main__":
+    main()
 
 def display_wheelchair_options(wheelchairs, aac_devices, products):
     col1, col2 = st.columns([1, 1])
